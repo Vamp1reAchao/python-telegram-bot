@@ -68,7 +68,7 @@ __all__ = (
 from . import filters
 from ._aioratelimiter import AIORateLimiter
 from ._application import Application, ApplicationHandlerStop
-from ._applicationbuilder import ApplicationBuilder
+from ._applicationbuilder_persistence_retry import ApplicationBuilder
 from ._basepersistence import BasePersistence, PersistenceInput
 from ._baseratelimiter import BaseRateLimiter
 from ._baseupdateprocessor import BaseUpdateProcessor, SimpleUpdateProcessor
