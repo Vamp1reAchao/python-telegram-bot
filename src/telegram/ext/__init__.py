@@ -6,7 +6,7 @@
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -19,55 +19,23 @@
 """Extensions over the Telegram Bot API to facilitate bot making"""
 
 __all__ = (
-    "AIORateLimiter",
-    "Application",
-    "ApplicationBuilder",
-    "ApplicationHandlerStop",
-    "BaseHandler",
-    "BasePersistence",
-    "BaseRateLimiter",
-    "BaseUpdateProcessor",
-    "BusinessConnectionHandler",
-    "BusinessMessagesDeletedHandler",
-    "CallbackContext",
-    "CallbackDataCache",
-    "CallbackQueryHandler",
-    "ChatBoostHandler",
-    "ChatJoinRequestHandler",
-    "ChatMemberHandler",
-    "ChosenInlineResultHandler",
-    "CommandHandler",
-    "ContextTypes",
-    "ConversationHandler",
-    "Defaults",
-    "DictPersistence",
-    "ExtBot",
-    "InlineQueryHandler",
-    "InvalidCallbackData",
-    "Job",
-    "JobQueue",
-    "ManagedBotUpdatedHandler",
-    "MessageHandler",
-    "MessageReactionHandler",
-    "PaidMediaPurchasedHandler",
-    "PersistenceInput",
-    "PicklePersistence",
-    "PollAnswerHandler",
-    "PollHandler",
-    "PreCheckoutQueryHandler",
-    "PrefixHandler",
-    "ShippingQueryHandler",
-    "SimpleUpdateProcessor",
-    "StringCommandHandler",
-    "StringRegexHandler",
-    "TypeHandler",
-    "Updater",
-    "filters",
+    "AIORateLimiter", "Application", "ApplicationBuilder", "ApplicationHandlerStop",
+    "BaseHandler", "BasePersistence", "BaseRateLimiter", "BaseUpdateProcessor",
+    "BusinessConnectionHandler", "BusinessMessagesDeletedHandler", "CallbackContext",
+    "CallbackDataCache", "CallbackQueryHandler", "ChatBoostHandler", "ChatJoinRequestHandler",
+    "ChatMemberHandler", "ChosenInlineResultHandler", "CommandHandler", "ContextTypes",
+    "ConversationHandler", "Defaults", "DictPersistence", "ExtBot", "InlineQueryHandler",
+    "InvalidCallbackData", "Job", "JobQueue", "ManagedBotUpdatedHandler", "MessageHandler",
+    "MessageReactionHandler", "PaidMediaPurchasedHandler", "PersistenceInput", "PicklePersistence",
+    "PollAnswerHandler", "PollHandler", "PreCheckoutQueryHandler", "PrefixHandler",
+    "ShippingQueryHandler", "SimpleUpdateProcessor", "StringCommandHandler", "StringRegexHandler",
+    "TypeHandler", "Updater", "filters",
 )
 
 from . import filters
 from ._aioratelimiter import AIORateLimiter
-from ._application import Application, ApplicationHandlerStop
+from ._application import ApplicationHandlerStop
+from ._application_persistence_retry import Application
 from ._applicationbuilder_persistence_retry import ApplicationBuilder
 from ._basepersistence import BasePersistence, PersistenceInput
 from ._baseratelimiter import BaseRateLimiter
