@@ -6,7 +6,7 @@
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -67,8 +67,9 @@ __all__ = (
 
 from . import filters
 from ._aioratelimiter import AIORateLimiter
-from ._application import Application, ApplicationHandlerStop
-from ._applicationbuilder import ApplicationBuilder
+from ._application import ApplicationHandlerStop
+from ._application_persistence_retry import Application
+from ._applicationbuilder_persistence_retry import ApplicationBuilder
 from ._basepersistence import BasePersistence, PersistenceInput
 from ._baseratelimiter import BaseRateLimiter
 from ._baseupdateprocessor import BaseUpdateProcessor, SimpleUpdateProcessor
