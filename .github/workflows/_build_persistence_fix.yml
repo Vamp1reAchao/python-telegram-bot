@@ -1,0 +1,168 @@
+name: prepare persistence fix
+
+on:
+  push:
+    branches:
+      - fix/persistence-retry-clean
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply fix, tests and changelog
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("src/telegram/ext/_application.py")
+          text = source.read_text()
+
+          old = '''            update_ids = self._chat_ids_to_be_updated_in_persistence
+            self._chat_ids_to_be_updated_in_persistence = set()
+            delete_ids = self._chat_ids_to_be_deleted_in_persistence
+            self._chat_ids_to_be_deleted_in_persistence = set()
+
+            # We don't want to update any data that has been deleted!
+            update_ids -= delete_ids
+
+            for chat_id in update_ids:
+                coroutines.add(
+                    self.persistence.update_chat_data(chat_id, deepcopy(self.chat_data[chat_id]))
+                )
+            for chat_id in delete_ids:
+                coroutines.add(self.persistence.drop_chat_data(chat_id))
+'''
+          new = '''            update_ids = self._chat_ids_to_be_updated_in_persistence
+            self._chat_ids_to_be_updated_in_persistence = set()
+            delete_ids = self._chat_ids_to_be_deleted_in_persistence
+            self._chat_ids_to_be_deleted_in_persistence = set()
+
+            # We don't want to update any data that has been deleted!
+            update_ids -= delete_ids
+
+            for chat_id in update_ids:
+                coroutines.add(
+                    self.persistence.update_chat_data(chat_id, deepcopy(self.chat_data[chat_id]))
+                )
+            for chat_id in delete_ids:
+                coroutines.add(self.persistence.drop_chat_data(chat_id))
+'''
+          if old not in text:
+              raise SystemExit("expected chat persistence block not found")
+
+          marker = '''        results = await asyncio.gather(*coroutines, return_exceptions=True)
+        _LOGGER.debug("Finished updating persistence.")
+'''
+          replacement = '''        results = await asyncio.gather(*coroutines, return_exceptions=True)
+
+        # Persistence implementations may fail transiently. Keep the data marked so the
+        # failed operation is attempted again during the next persistence update.
+        if any(isinstance(result, Exception) for result in results):
+            self._chat_ids_to_be_updated_in_persistence.update(update_ids)
+            self._chat_ids_to_be_deleted_in_persistence.update(delete_ids)
+            self._user_ids_to_be_updated_in_persistence.update(user_update_ids)
+            self._user_ids_to_be_deleted_in_persistence.update(user_delete_ids)
+
+        _LOGGER.debug("Finished updating persistence.")
+'''
+
+          if marker not in text:
+              raise SystemExit("expected persistence result block not found")
+
+          # Add stable local copies for the user sets before they are cleared.
+          user_marker = '''        if self.persistence.store_data.user_data:
+            update_ids = self._user_ids_to_be_updated_in_persistence
+            self._user_ids_to_be_updated_in_persistence = set()
+            delete_ids = self._user_ids_to_be_deleted_in_persistence
+            self._user_ids_to_be_deleted_in_persistence = set()
+'''
+          user_replacement = '''        user_update_ids = set()
+        user_delete_ids = set()
+        if self.persistence.store_data.user_data:
+            update_ids = self._user_ids_to_be_updated_in_persistence
+            self._user_ids_to_be_updated_in_persistence = set()
+            delete_ids = self._user_ids_to_be_deleted_in_persistence
+            self._user_ids_to_be_deleted_in_persistence = set()
+            user_update_ids = set(update_ids)
+            user_delete_ids = set(delete_ids)
+'''
+          if user_marker not in text:
+              raise SystemExit("expected user persistence block not found")
+          text = text.replace(user_marker, user_replacement, 1)
+          text = text.replace(marker, replacement, 1)
+          source.write_text(text)
+          PY
+
+          cat > tests/ext/test_application_persistence.py <<'PY'
+          import pytest
+
+          from telegram.ext import ApplicationBuilder, PersistenceInput
+          from tests.ext.test_basepersistence import TrackingPersistence
+
+
+          @pytest.mark.asyncio
+          async def test_failed_persistence_update_is_retried(one_time_bot, monkeypatch):
+              persistence = TrackingPersistence(
+                  store_data=PersistenceInput(
+                      bot_data=False, chat_data=True, user_data=False, callback_data=False
+                  )
+              )
+              application = ApplicationBuilder().bot(one_time_bot).persistence(persistence).build()
+
+              attempts = 0
+              original_update_chat_data = persistence.update_chat_data
+
+              async def update_chat_data(chat_id, data):
+                  nonlocal attempts
+                  attempts += 1
+                  if attempts == 1:
+                      raise RuntimeError("transient persistence failure")
+                  await original_update_chat_data(chat_id, data)
+
+              monkeypatch.setattr(persistence, "update_chat_data", update_chat_data)
+
+              async with application:
+                  application.chat_data[1]["value"] = "persist me"
+                  application.mark_data_for_update_persistence(chat_ids=1)
+
+                  await application.update_persistence()
+                  assert attempts == 1
+                  assert application._chat_ids_to_be_updated_in_persistence == {1}
+
+                  await application.update_persistence()
+
+              assert attempts == 2
+              assert persistence.updated_chat_ids == {1: 1}
+          PY
+
+          cat > changes/unreleased/0000.persistence-retry.toml <<'TOML'
+          bugfixes = "Retry persistence updates after transient write failures instead of losing the pending update."
+          [[pull_requests]]
+          uid = "0000"
+          author_uids = ["Vamp1reAchao"]
+          closes_threads = []
+          TOML
+
+          rm .github/workflows/_build_persistence_fix.yml
+
+      - name: Run regression test
+        run: |
+          pipx install uv
+          uv sync --all-extras --group tests
+          uv run pytest tests/ext/test_application_persistence.py -q
+
+      - name: Commit changes
+        run: |
+          git config user.name "Vamp1reAchao"
+          git config user.email "132556711+Vamp1reAchao@users.noreply.github.com"
+          git add src/telegram/ext/_application.py tests/ext/test_application_persistence.py changes/unreleased/0000.persistence-retry.toml
+          git add -u .github/workflows/_build_persistence_fix.yml
+          git commit -m "Retry failed persistence updates"
+          git push
